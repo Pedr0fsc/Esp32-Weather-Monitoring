@@ -1,0 +1,1 @@
+mpremote connect COM9 exec "import os; s=os.statvfs('/'); print(f'Total: {s[0]*s[2]//1024} KB, Free: {s[0]*s[3]//1024} KB')"
