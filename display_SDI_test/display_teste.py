@@ -8,7 +8,7 @@ SPI_SCL = 18      # D18 - SCL
 SPI_SDA = 23      # D23 - SDA (MOSI) 
 RST = 4           # D4 - RES
 DC = 15           # D15 - DC
-BLK = 22          # D22 - BLK (Backlight)
+BLK = 5          # D5 - BLK (Backlight)
 
 # Criar o objeto do display
 display = st7789_simplified.ST7789(
