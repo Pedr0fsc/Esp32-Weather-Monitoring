@@ -33,7 +33,7 @@ def setup_sensors():
             i2c = I2C(0, scl=Pin(BMP280_SCL_PIN), sda=Pin(BMP280_SDA_PIN), freq=BMP280_I2C_FREQ)
             
             # Dar um tempo para o barramento I2C estabilizar
-            time.sleep(0.1)
+            time.sleep(0.5)
             
             devices = i2c.scan()
             if devices:
