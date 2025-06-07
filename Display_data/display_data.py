@@ -18,7 +18,7 @@ print("Iniciando sistema...")
 
 ENABLE_LDR = True         # Sensor de luminosidade
 ENABLE_DHT11 = True       # Sensor de temperatura e umidade
-ENABLE_RAIN_SENSOR = False # Sensor de chuva (desabilitado por padrão)
+ENABLE_RAIN_SENSOR = True # Sensor de chuva (desabilitado por padrão)
 
 # ===============================================================
 # CONFIGURAÇÃO DE PINOS
@@ -37,7 +37,7 @@ DHT11_PIN = 4             # Temperatura/umidade (digital)
 RAIN_SENSOR_PIN = 34      # Sensor de chuva (analógico)
 
 # Atuadores (LEDs e Buzzer)
-LED_VERDE_PIN = 2         # LED Verde - Sistema OK
+LED_VERDE_PIN = 27         # LED Verde - Sistema OK
 LED_VERMELHO_PIN = 12     # LED Vermelho - Alertas críticos
 LED_AMARELO_PIN = 13         # LED Amarelo - Chuva/Umidade
 BUZZER_PIN = 14           # Buzzer para alertas sonoros
