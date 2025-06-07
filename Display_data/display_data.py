@@ -1,663 +1,484 @@
-# ===============================================================
-# ESP32 WEATHER STATION COM SISTEMA DE ALERTAS
-# Estação meteorológica inteligente com sensores e atuadores
-# ===============================================================
-
 import time
 from machine import Pin, reset, freq, ADC, PWM
 import st7789_simplified
 import dht
 import gc
+import network
+import uasyncio as asyncio
+from umqtt.simple import MQTTClient
 
 print("=== ESP32 WEATHER STATION ===")
-print("Iniciando sistema...")
 
 # ===============================================================
-# CONFIGURAÇÃO DOS SENSORES
+# CONFIGURAÇÕES
 # ===============================================================
-
-ENABLE_LDR = True         # Sensor de luminosidade
-ENABLE_DHT11 = True       # Sensor de temperatura e umidade
-ENABLE_RAIN_SENSOR = True # Sensor de chuva (desabilitado por padrão)
-
-# ===============================================================
-# CONFIGURAÇÃO DE PINOS
-# ===============================================================
-
-# Display ST7789
-SPI_SCK = 18
-SPI_MOSI = 23
-RST = 19
-DC = 15
-BLK = 5
 
 # Sensores
-LDR_PIN = 32              # Sensor de luminosidade (analógico)
-DHT11_PIN = 4             # Temperatura/umidade (digital)
-RAIN_SENSOR_PIN = 34      # Sensor de chuva (analógico)
+ENABLE_LDR = True
+ENABLE_DHT11 = True
+ENABLE_RAIN_SENSOR = True
 
-# Atuadores (LEDs e Buzzer)
-LED_VERDE_PIN = 27         # LED Verde - Sistema OK
-LED_VERMELHO_PIN = 12     # LED Vermelho - Alertas críticos
-LED_AMARELO_PIN = 13         # LED Amarelo - Chuva/Umidade
-BUZZER_PIN = 14           # Buzzer para alertas sonoros
+# WiFi e MQTT
+WIFI_SSID = ""
+WIFI_PASSWORD = ""
+ADAFRUIT_AIO_USERNAME = ""
+ADAFRUIT_AIO_KEY = ""
+MQTT_SERVER = "io.adafruit.com"
 
-# ===============================================================
-# CONFIGURAÇÃO DE LIMITES E ALERTAS
-# ===============================================================
+# Pinos
+DHT11_PIN = 4
+LDR_PIN = 32
+RAIN_SENSOR_PIN = 34
+LED_PIN = 2
+BUZZER_PIN = 14
 
-# Limites de temperatura (°C)
-TEMP_ALERTA_ALTA = 35
-TEMP_ALERTA_BAIXA = 5
+# Display ST7789
+SPI_SCK, SPI_MOSI, RST, DC, BLK = 18, 23, 19, 15, 5
 
-# Limites de umidade (%)
-UMIDADE_ALERTA_ALTA = 85
-UMIDADE_ALERTA_BAIXA = 20
-
-# Limites do sensor LDR (luminosidade)
-LDR_THRESHOLD_DARK = 500     # Abaixo = noite/escuro
-LDR_THRESHOLD_BRIGHT = 2500  # Acima = dia ensolarado
-
-# Limites do sensor de chuva
-RAIN_THRESHOLD_DRY = 3000    # Acima = seco
-RAIN_THRESHOLD_WET = 1500    # Abaixo = chuva forte
-
-# Configurações gerais
-ENABLE_SOUND_ALERTS = True   # Ativar/desativar buzzer
-LDR_SAMPLES = 5             # Amostras para média do LDR
-RAIN_SAMPLES = 5            # Amostras para média da chuva
+# Limites de alerta
+TEMP_HIGH, TEMP_LOW = 35, 5
+HUMIDITY_HIGH, HUMIDITY_LOW = 85, 20
+LDR_DARK, LDR_BRIGHT = 500, 2500
 
 # ===============================================================
-# PADRÕES DE SONS DO BUZZER
+# CLASSES E VARIÁVEIS GLOBAIS
 # ===============================================================
 
-BEEP_PATTERNS = {
-    'temp_alta': [(800, 200), (0, 100), (800, 200)],      # Bi-bip agudo
-    'temp_baixa': [(400, 300), (0, 200), (400, 300)],     # Bi-bip grave
-    'umidade_alta': [(600, 150), (0, 50), (600, 150)],    # Tri-bip
-    'chuva': [(500, 100), (0, 50)] * 3,                   # Bips rápidos
-    'sistema_ok': [(1000, 100)],                          # Bip único
-    'erro': [(300, 500)],                                 # Bip longo grave
-}
-
-# ===============================================================
-# VARIÁVEIS GLOBAIS
-# ===============================================================
-
-display = None
-dht11 = None
-rain_sensor = None
-ldr_sensor = None
-led_verde = None
-led_vermelho = None
-led_amarelo = None
-buzzer = None
-boot_count = 0
-
-# ===============================================================
-# FUNÇÕES DE INICIALIZAÇÃO
-# ===============================================================
-
-def startup_sequence():
-    """Sequência de inicialização do sistema"""
-    global boot_count
-    
-    print("Executando sequência de boot...")
-    
-    # Reduz frequência da CPU para economia de energia
-    freq(80000000)
-    print(f"CPU configurada para: {freq()}Hz")
-    
-    # Indica boot com LED do backlight
-    status_led = Pin(BLK, Pin.OUT)
-    for i in range(3):
-        status_led.on()
-        time.sleep(0.2)
-        status_led.off()
-        time.sleep(0.2)
-    
-    boot_count += 1
-    print(f"Boot #{boot_count} concluído")
-
-def init_display():
-    """Inicializa o display ST7789"""
-    global display
-    
-    print("Inicializando display...")
-    
-    # Reset físico do display
-    rst_pin = Pin(RST, Pin.OUT)
-    rst_pin.off()
-    time.sleep(0.1)
-    rst_pin.on()
-    time.sleep(0.2)
-    
-    # Liga backlight
-    bl_pin = Pin(BLK, Pin.OUT)
-    bl_pin.on()
-    
-    try:
-        display = st7789_simplified.ST7789(
-            spi_sck=SPI_SCK,
-            spi_mosi=SPI_MOSI,
-            rst=RST,
-            dc=DC,
-            bl=BLK
-        )
+class WeatherStation:
+    def __init__(self):
+        self.display = None
+        self.dht_sensor = None
+        self.ldr_sensor = None
+        self.rain_sensor = None
+        self.led = None
+        self.buzzer = None
+        self.mqtt_client = None
+        self.wifi_connected = False
+        self.loop_count = 0
         
-        # Teste inicial
-        display.fill(display.BLACK)
-        display.text("WEATHER STATION", 10, 100, display.GREEN)
-        display.text("INICIALIZANDO...", 10, 120, display.WHITE)
-        time.sleep(2)
+    def init_hardware(self):
+        """Inicializa todos os componentes de hardware"""
+        freq(80000000)  # Reduz frequência para economia
         
-        print("✓ Display inicializado com sucesso!")
-        return True
-        
-    except Exception as e:
-        print(f"✗ Erro no display: {e}")
-        return False
-
-def init_sensors():
-    """Inicializa todos os sensores configurados"""
-    global dht11, rain_sensor, ldr_sensor
-    
-    print("Inicializando sensores...")
-    sensors_ok = 0
-    
-    # Sensor LDR (Luminosidade)
-    if ENABLE_LDR:
+        # Display
         try:
-            ldr_sensor = ADC(Pin(LDR_PIN))
-            ldr_sensor.atten(ADC.ATTN_11DB)  # Range 0-3.3V
+            self.display = st7789_simplified.ST7789(
+                spi_sck=SPI_SCK, spi_mosi=SPI_MOSI, rst=RST, dc=DC, bl=BLK
+            )
+            self.display.fill(self.display.BLACK)
+            self.display.text("WEATHER STATION", 10, 100, self.display.GREEN)
+            self.display.text("INICIALIZANDO...", 10, 120, self.display.WHITE)
+            print("✓ Display OK")
+        except Exception as e:
+            print(f"✗ Display erro: {e}")
             
-            # Teste de leitura
-            test_value = ldr_sensor.read()
-            if 0 <= test_value <= 4095:
-                print(f"✓ Sensor LDR OK (teste: {test_value})")
-                sensors_ok += 1
-            else:
-                print(f"✗ LDR valor inválido: {test_value}")
-                ldr_sensor = None
+        # LED de status
+        try:
+            self.led = Pin(LED_PIN, Pin.OUT)
+            self.led.on()
+            print("✓ LED OK")
+        except Exception as e:
+            print(f"✗ LED erro: {e}")
+            
+        # Buzzer
+        try:
+            self.buzzer = PWM(Pin(BUZZER_PIN))
+            self.buzzer.duty(0)
+            self.beep(1000, 100)  # Teste
+            print("✓ Buzzer OK")
+        except Exception as e:
+            print(f"✗ Buzzer erro: {e}")
+            
+        # Sensores
+        if ENABLE_DHT11:
+            try:
+                self.dht_sensor = dht.DHT11(Pin(DHT11_PIN))
+                print("✓ DHT11 OK")
+            except Exception as e:
+                print(f"✗ DHT11 erro: {e}")
                 
-        except Exception as e:
-            print(f"✗ Erro no LDR: {e}")
-            ldr_sensor = None
-    
-    # Sensor DHT11 (Temperatura e Umidade)
-    if ENABLE_DHT11:
-        try:
-            dht11 = dht.DHT11(Pin(DHT11_PIN))
-            print("✓ DHT11 configurado")
-            sensors_ok += 1
-        except Exception as e:
-            print(f"✗ Erro no DHT11: {e}")
-            dht11 = None
-    
-    # Sensor de Chuva
-    if ENABLE_RAIN_SENSOR:
-        try:
-            rain_sensor = ADC(Pin(RAIN_SENSOR_PIN))
-            rain_sensor.atten(ADC.ATTN_11DB)  # Range 0-3.3V
-            
-            # Teste de leitura
-            test_value = rain_sensor.read()
-            if 0 <= test_value <= 4095:
-                print(f"✓ Sensor de chuva OK (teste: {test_value})")
-                sensors_ok += 1
-            else:
-                print(f"✗ Sensor de chuva valor inválido: {test_value}")
-                rain_sensor = None
+        if ENABLE_LDR:
+            try:
+                self.ldr_sensor = ADC(Pin(LDR_PIN))
+                self.ldr_sensor.atten(ADC.ATTN_11DB)
+                print("✓ LDR OK")
+            except Exception as e:
+                print(f"✗ LDR erro: {e}")
                 
+        if ENABLE_RAIN_SENSOR:
+            try:
+                self.rain_sensor = ADC(Pin(RAIN_SENSOR_PIN))
+                self.rain_sensor.atten(ADC.ATTN_11DB)
+                print("✓ Rain sensor OK")
+            except Exception as e:
+                print(f"✗ Rain sensor erro: {e}")
+                
+    def beep(self, freq_hz, duration_ms):
+        """Emite um beep simples"""
+        if not self.buzzer:
+            return
+        try:
+            self.buzzer.freq(freq_hz)
+            self.buzzer.duty(512)
+            time.sleep(duration_ms / 1000)
+            self.buzzer.duty(0)
+        except:
+            pass
+            
+    def connect_wifi(self):
+        """Conecta ao WiFi"""
+        print("Conectando WiFi...")
+        sta_if = network.WLAN(network.STA_IF)
+        sta_if.active(True)
+        
+        if not sta_if.isconnected():
+            sta_if.connect(WIFI_SSID, WIFI_PASSWORD)
+            
+            timeout = 15
+            while not sta_if.isconnected() and timeout > 0:
+                time.sleep(1)
+                timeout -= 1
+                
+        if sta_if.isconnected():
+            print(f"✓ WiFi: {sta_if.ifconfig()[0]}")
+            self.wifi_connected = True
+            return True
+        else:
+            print("✗ WiFi falhou")
+            self.wifi_connected = False
+            return False
+            
+    def connect_mqtt(self):
+        """Conecta ao MQTT"""
+        if not self.wifi_connected:
+            if not self.connect_wifi():
+                return False
+                
+        try:
+            client_id = f"weather_{time.ticks_ms()}"
+            self.mqtt_client = MQTTClient(
+                client_id=client_id,
+                server=MQTT_SERVER,
+                port=1883,
+                user=ADAFRUIT_AIO_USERNAME,
+                password=ADAFRUIT_AIO_KEY
+            )
+            self.mqtt_client.connect()
+            print("✓ MQTT conectado")
+            return True
         except Exception as e:
-            print(f"✗ Erro no sensor de chuva: {e}")
-            rain_sensor = None
-    
-    print(f"Sensores ativos: {sensors_ok}")
-    return sensors_ok > 0
-
-def init_actuators():
-    """Inicializa LEDs e buzzer para sistema de alertas"""
-    global led_verde, led_vermelho, led_amarelo, buzzer
-    
-    print("Inicializando sistema de alertas...")
-    
-    try:
-        # Configura LEDs como saídas
-        led_verde = Pin(LED_VERDE_PIN, Pin.OUT)
-        led_vermelho = Pin(LED_VERMELHO_PIN, Pin.OUT)
-        led_amarelo = Pin(LED_AMARELO_PIN, Pin.OUT)
-        
-        # Configura buzzer como PWM
-        buzzer = PWM(Pin(BUZZER_PIN))
-        buzzer.duty(0)  # Inicia desligado
-        
-        # Teste dos componentes
-        test_actuators()
-        
-        print("✓ Sistema de alertas inicializado!")
-        return True
-        
-    except Exception as e:
-        print(f"✗ Erro nos atuadores: {e}")
-        return False
-
-def test_actuators():
-    """Testa LEDs e buzzer em sequência"""
-    print("Testando sistema de alertas...")
-    
-    # Teste dos LEDs
-    leds = [(led_verde, "Verde"), (led_vermelho, "Vermelho"), (led_amarelo, "amarelo")]
-    
-    for led, cor in leds:
-        if led:
-            print(f"Testando LED {cor}")
-            led.on()
-            time.sleep(0.3)
-            led.off()
-            time.sleep(0.1)
-    
-    # Teste do buzzer
-    if buzzer and ENABLE_SOUND_ALERTS:
-        print("Testando buzzer")
-        play_beep_pattern('sistema_ok')
-
-# ===============================================================
-# FUNÇÕES DE LEITURA DOS SENSORES
-# ===============================================================
-
-def read_ldr_sensor():
-    """Lê sensor de luminosidade e interpreta condição"""
-    if ldr_sensor is None:
-        return None, "Sensor OFF", 0
-        
-    try:
-        # Coleta múltiplas amostras para maior precisão
-        readings = [ldr_sensor.read() for _ in range(LDR_SAMPLES)]
-        avg_value = sum(readings) / len(readings)
-        
-        # Interpreta luminosidade
-        if avg_value < LDR_THRESHOLD_DARK:
-            light_status = "Noite"
-        elif avg_value > LDR_THRESHOLD_BRIGHT:
-            light_status = "Ensolarado"
-        else:
-            light_status = "Nublado"
-        
-        # Calcula percentual (0-100%)
-        light_percent = min(100, int((avg_value / 4095) * 100))
-        
-        return int(avg_value), light_status, light_percent
-        
-    except Exception as e:
-        print(f"Erro no LDR: {e}")
-        return None, "Erro", 0
-
-def read_rain_sensor():
-    """Lê sensor de chuva e interpreta status"""
-    if rain_sensor is None:
-        return None, "Sensor OFF"
-        
-    try:
-        # Coleta múltiplas amostras
-        readings = [rain_sensor.read() for _ in range(RAIN_SAMPLES)]
-        avg_value = sum(readings) / len(readings)
-        
-        # Interpreta umidade
-        if avg_value > RAIN_THRESHOLD_DRY:
-            status = "Seco"
-        elif avg_value < RAIN_THRESHOLD_WET:
-            status = "Chuva"
-        else:
-            status = "Úmido"
-        
-        return int(avg_value), status
-        
-    except Exception as e:
-        print(f"Erro no sensor de chuva: {e}")
-        return None, "Erro"
-
-def read_dht11_sensor():
-    """Lê sensor DHT11 (temperatura e umidade)"""
-    if dht11 is None:
-        return None, None
-        
-    try:
-        dht11.measure()
-        time.sleep(0.5)  # DHT11 precisa de pausa entre leituras
-        
-        temp = dht11.temperature()
-        humidity = dht11.humidity()
-        
-        if temp is not None and humidity is not None:
-            return temp, humidity
-        else:
-            print("DHT11: Dados inválidos")
-            return None, None
+            print(f"✗ MQTT erro: {e}")
+            return False
             
-    except Exception as e:
-        print(f"Erro no DHT11: {e}")
-        return None, None
-
-# ===============================================================
-# SISTEMA DE ALERTAS
-# ===============================================================
-
-def play_beep_pattern(pattern_name):
-    """Toca padrão de beeps específico"""
-    if not buzzer or not ENABLE_SOUND_ALERTS or pattern_name not in BEEP_PATTERNS:
-        return
-    
-    pattern = BEEP_PATTERNS[pattern_name]
-    
-    try:
-        for freq_hz, duration_ms in pattern:
-            if freq_hz > 0:
-                buzzer.freq(freq_hz)
-                buzzer.duty(512)  # 50% duty cycle
+    def publish_data(self, feed, value):
+        """Publica dados para Adafruit IO"""
+        if not self.mqtt_client:
+            return False
+            
+        try:
+            topic = f"{ADAFRUIT_AIO_USERNAME}/feeds/{feed}"
+            self.mqtt_client.publish(topic, str(value))
+            return True
+        except Exception as e:
+            print(f"Erro publicando {feed}: {e}")
+            return False
+            
+    def read_sensors(self):
+        """Lê todos os sensores e retorna dados"""
+        data = {}
+        
+        # DHT11 - Temperatura e Umidade
+        if self.dht_sensor:
+            try:
+                self.dht_sensor.measure()
+                time.sleep(0.5)
+                data['temperature'] = self.dht_sensor.temperature()
+                data['humidity'] = self.dht_sensor.humidity()
+            except Exception as e:
+                print(f"DHT11 erro: {e}")
+                data['temperature'] = None
+                data['humidity'] = None
+        else:
+            data['temperature'] = None
+            data['humidity'] = None
+            
+        # LDR - Luminosidade
+        if self.ldr_sensor:
+            try:
+                ldr_raw = self.ldr_sensor.read()
+                data['light_raw'] = ldr_raw
+                data['light_percent'] = min(100, int((ldr_raw / 4095) * 100))
+                
+                if ldr_raw < LDR_DARK:
+                    data['light_status'] = "Noite"
+                elif ldr_raw > LDR_BRIGHT:
+                    data['light_status'] = "Ensolarado"
+                else:
+                    data['light_status'] = "Nublado"
+            except Exception as e:
+                print(f"LDR erro: {e}")
+                data['light_raw'] = None
+                data['light_percent'] = None
+                data['light_status'] = "Erro"
+        else:
+            data['light_raw'] = None
+            data['light_percent'] = None
+            data['light_status'] = "OFF"
+            
+        # Sensor de Chuva
+        if self.rain_sensor:
+            try:
+                rain_raw = self.rain_sensor.read()
+                data['rain_raw'] = rain_raw
+                data['rain_status'] = "Seco" if rain_raw > 3000 else "Úmido" if rain_raw > 1500 else "Chuva"
+            except Exception as e:
+                print(f"Rain sensor erro: {e}")
+                data['rain_raw'] = None
+                data['rain_status'] = "Erro"
+        else:
+            data['rain_raw'] = None
+            data['rain_status'] = "OFF"
+            
+        return data
+        
+    def check_alerts(self, data):
+        """Verifica condições de alerta"""
+        alerts = []
+        
+        temp = data.get('temperature')
+        humidity = data.get('humidity')
+        rain_status = data.get('rain_status')
+        
+        if temp is not None:
+            if temp >= TEMP_HIGH:
+                alerts.append("TEMP_ALTA")
+            elif temp <= TEMP_LOW:
+                alerts.append("TEMP_BAIXA")
+                
+        if humidity is not None:
+            if humidity >= HUMIDITY_HIGH:
+                alerts.append("UMID_ALTA")
+            elif humidity <= HUMIDITY_LOW:
+                alerts.append("UMID_BAIXA")
+                
+        if rain_status == "Chuva":
+            alerts.append("CHUVA")
+            
+        return alerts
+        
+    def handle_alerts(self, alerts):
+        """Processa alertas - LED e som"""
+        if not alerts:
+            if self.led:
+                self.led.on()  # LED ligado = sistema OK
+            return
+            
+        # LED piscando para alertas
+        if self.led:
+            self.led.off()
+            
+        # Som de alerta
+        if "TEMP_ALTA" in alerts:
+            self.beep(800, 200)
+        elif "TEMP_BAIXA" in alerts:
+            self.beep(400, 300)
+        elif "CHUVA" in alerts:
+            self.beep(600, 150)
+        elif any("UMID" in alert for alert in alerts):
+            self.beep(500, 100)
+            
+    def update_display(self, data, alerts):
+        """Atualiza display com informações"""
+        if not self.display:
+            return
+            
+        try:
+            self.display.fill(self.display.BLACK)
+            y = 10
+            
+            # Título
+            self.display.text("WEATHER STATION", 5, y, self.display.CYAN)
+            y += 25
+            
+            # Status
+            if alerts:
+                self.display.text("STATUS: ALERTA!", 5, y, self.display.RED)
+                y += 20
+                for alert in alerts[:2]:  # Máximo 2 alertas
+                    self.display.text(f"- {alert}", 5, y, self.display.YELLOW)
+                    y += 15
             else:
-                buzzer.duty(0)    # Silêncio
+                self.display.text("STATUS: OK", 5, y, self.display.GREEN)
+                y += 20
+                
+            # Dados dos sensores
+            temp = data.get('temperature')
+            humidity = data.get('humidity')
             
-            time.sleep(duration_ms / 1000.0)
-        
-        buzzer.duty(0)  # Garante que termine desligado
-        
-    except Exception as e:
-        print(f"Erro no buzzer: {e}")
-        buzzer.duty(0)
-
-def update_alert_system(temp, humidity, rain_status):
-    """Atualiza sistema de alertas baseado nos dados dos sensores"""
-    alerts = {
-        'temp_alta': False,
-        'temp_baixa': False,
-        'umidade_alta': False,
-        'umidade_baixa': False,
-        'chuva': False,
-        'sistema_ok': True
-    }
-    
-    # Verifica alertas de temperatura
-    if temp is not None:
-        if temp >= TEMP_ALERTA_ALTA:
-            alerts['temp_alta'] = True
-            alerts['sistema_ok'] = False
-        elif temp <= TEMP_ALERTA_BAIXA:
-            alerts['temp_baixa'] = True
-            alerts['sistema_ok'] = False
-    
-    # Verifica alertas de umidade
-    if humidity is not None:
-        if humidity >= UMIDADE_ALERTA_ALTA:
-            alerts['umidade_alta'] = True
-            alerts['sistema_ok'] = False
-        elif humidity <= UMIDADE_ALERTA_BAIXA:
-            alerts['umidade_baixa'] = True
-            alerts['sistema_ok'] = False
-    
-    # Verifica alerta de chuva
-    if rain_status == "Chuva":
-        alerts['chuva'] = True
-        alerts['sistema_ok'] = False
-    
-    # Atualiza LEDs e sons
-    update_leds(alerts)
-    play_alerts(alerts)
-    
-    return alerts
-
-def update_leds(alerts):
-    """Atualiza status dos LEDs baseado nos alertas"""
-    if not all([led_verde, led_vermelho, led_amarelo]):
-        return
-    
-    # LED VERDE - Sistema OK
-    led_verde.value(1 if alerts['sistema_ok'] else 0)
-    
-    # LED VERMELHO - Alertas críticos (temperatura)
-    led_vermelho.value(1 if (alerts['temp_alta'] or alerts['temp_baixa']) else 0)
-    
-    # LED AMARELO - Alertas de umidade/chuva
-    led_amarelo.value(1 if (alerts['chuva'] or alerts['umidade_alta'] or alerts['umidade_baixa']) else 0)
-
-def play_alerts(alerts):
-    """Toca alertas sonoros por prioridade"""
-    if not ENABLE_SOUND_ALERTS:
-        return
-    
-    # Toca apenas o alerta de maior prioridade
-    if alerts['temp_alta']:
-        play_beep_pattern('temp_alta')
-    elif alerts['temp_baixa']:
-        play_beep_pattern('temp_baixa')
-    elif alerts['chuva']:
-        play_beep_pattern('chuva')
-    elif alerts['umidade_alta'] or alerts['umidade_baixa']:
-        play_beep_pattern('umidade_alta')
-
-# ===============================================================
-# INTERFACE DO DISPLAY
-# ===============================================================
-
-def update_display(temp, humidity, ldr_value, light_status, light_percent, rain_status, alerts, loop_count):
-    """Atualiza informações no display"""
-    if display is None:
-        return
-        
-    try:
-        display.fill(display.BLACK)
-        y = 5
-        
-        # Cabeçalho
-        display.text("WEATHER STATION", 5, y, display.CYAN)
-        y += 20
-        
-        # Status geral do sistema
-        if alerts['sistema_ok']:
-            display.text("STATUS: OK", 5, y, display.GREEN)
-        else:
-            display.text("STATUS: ALERTA!", 5, y, display.RED)
-        y += 25
-        
-        # Temperatura e Umidade
-        if temp is not None and humidity is not None:
-            temp_color = display.WHITE
-            if temp >= TEMP_ALERTA_ALTA:
-                temp_color = display.RED
-            elif temp <= TEMP_ALERTA_BAIXA:
-                temp_color = display.BLUE
-            
-            display.text(f"Temp: {temp}C", 5, y, temp_color)
+            if temp is not None:
+                color = self.display.RED if temp >= TEMP_HIGH or temp <= TEMP_LOW else self.display.WHITE
+                self.display.text(f"Temp: {temp}C", 5, y, color)
+                y += 15
+                
+            if humidity is not None:
+                color = self.display.YELLOW if humidity >= HUMIDITY_HIGH or humidity <= HUMIDITY_LOW else self.display.WHITE
+                self.display.text(f"Umid: {humidity}%", 5, y, color)
+                y += 15
+                
+            light_percent = data.get('light_percent')
+            light_status = data.get('light_status')
+            if light_percent is not None:
+                self.display.text(f"Luz: {light_percent}%", 5, y, self.display.WHITE)
+                self.display.text(f"({light_status})", 5, y + 15, self.display.WHITE)
+                y += 30
+                
+            # Sensor de chuva (se habilitado)
+            if ENABLE_RAIN_SENSOR:
+                rain_status = data.get('rain_status')
+                rain_raw = data.get('rain_raw')
+                if rain_status and rain_status not in ["OFF", "Erro"]:
+                    rain_color = self.display.BLUE if rain_status == "Chuva" else self.display.WHITE
+                    self.display.text(f"Chuva: {rain_status}", 5, y, rain_color)
+                    if rain_raw is not None:
+                        self.display.text(f"({rain_raw})", 5, y + 15, self.display.WHITE)
+                    y += 30
+                
+            # Conectividade
+            y += 10
+            wifi_color = self.display.GREEN if self.wifi_connected else self.display.RED
+            self.display.text("WiFi: " + ("ON" if self.wifi_connected else "OFF"), 5, y, wifi_color)
             y += 15
             
-            hum_color = display.WHITE
-            if humidity >= UMIDADE_ALERTA_ALTA or humidity <= UMIDADE_ALERTA_BAIXA:
-                hum_color = display.YELLOW
-            
-            display.text(f"Umid: {humidity}%", 5, y, hum_color)
+            mqtt_color = self.display.GREEN if self.mqtt_client else self.display.RED
+            self.display.text("Cloud: " + ("ON" if self.mqtt_client else "OFF"), 5, y, mqtt_color)
             y += 20
-        
-        # Luminosidade
-        if ldr_value is not None:
-            light_color = display.YELLOW if light_status == "Ensolarado" else display.WHITE
-            display.text(f"Luz: {light_percent}%", 5, y, light_color)
-            display.text(f"({light_status})", 5, y + 15, light_color)
-            y += 35
-        
-        # Chuva (se habilitado)
-        if ENABLE_RAIN_SENSOR and rain_status:
-            rain_color = display.BLUE if rain_status == "Chuva" else display.WHITE
-            display.text(f"Chuva: {rain_status}", 5, y, rain_color)
-            y += 20
-        
-        # Alertas ativos
-        active_alerts = [k for k, v in alerts.items() if v and k != 'sistema_ok']
-        if active_alerts:
-            display.text("ALERTAS ATIVOS:", 5, y, display.RED)
-            y += 15
-            for alert in active_alerts[:3]:  # Máximo 3 alertas na tela
-                alert_text = alert.replace('_', ' ').upper()
-                display.text(f"- {alert_text}", 5, y, display.YELLOW)
-                y += 12
-        
-        # Status do sistema (rodapé)
-        display.text(f"Ciclo: {loop_count}", 5, 220, display.GREEN)
-        
-        # Indicadores dos LEDs
-        led_status = "LEDs: "
-        if led_verde and led_verde.value():
-            led_status += "Verde"
-        if led_vermelho and led_vermelho.value():
-            led_status += "Vermelho"
-        if led_amarelo and led_amarelo.value():
-            led_status += "Amarelo"
-        if len(led_status) == 6:
-            led_status += "OFF"
-        
-        display.text(led_status, 120, 220, display.WHITE)
-        
-    except Exception as e:
-        print(f"Erro no display: {e}")
-
-# ===============================================================
-# LOOP PRINCIPAL
-# ===============================================================
-
-def main_loop():
-    """Loop principal de leitura e exibição dos dados"""
-    loop_count = 0
-    error_count = 0
-    
-    print("Iniciando loop principal de monitoramento...")
-    
-    while True:
-        try:
-            print(f"\n--- Ciclo {loop_count + 1} ---")
             
-            # Lê todos os sensores
-            temp, humidity = read_dht11_sensor()
-            ldr_value, light_status, light_percent = read_ldr_sensor()
-            rain_value, rain_status = read_rain_sensor()
-            
-            # Exibe dados no console
-            if temp is not None and humidity is not None:
-                print(f"DHT11: {temp}°C, {humidity}%")
-            
-            if ldr_value is not None:
-                print(f"LDR: {ldr_value} ({light_percent}%) - {light_status}")
-            
-            if ENABLE_RAIN_SENSOR and rain_value is not None:
-                print(f"Chuva: {rain_value} ({rain_status})")
-            
-            # Atualiza sistema de alertas
-            alerts = update_alert_system(temp, humidity, rain_status)
-            
-            # Mostra alertas no console
-            active_alerts = [k for k, v in alerts.items() if v and k != 'sistema_ok']
-            if active_alerts:
-                print(f"ALERTAS: {', '.join(active_alerts)}")
-            else:
-                print("Sistema OK")
-            
-            # Atualiza display
-            update_display(temp, humidity, ldr_value, light_status, light_percent, 
-                         rain_status, alerts, loop_count + 1)
-            
-            loop_count += 1
-            error_count = 0
-            
-            # Som de confirmação ocasional (a cada 20 ciclos sem alertas)
-            if loop_count % 20 == 0 and alerts['sistema_ok']:
-                play_beep_pattern('sistema_ok')
-            
-            # Limpeza de memória periódica
-            if loop_count % 10 == 0:
-                gc.collect()
-                print(f"Memória livre: {gc.mem_free()} bytes")
-            
-            # Pausa entre leituras
-            time.sleep(5)
-            
-        except KeyboardInterrupt:
-            print("Sistema interrompido pelo usuário")
-            break
+            # Rodapé
+            self.display.text(f"Ciclo: {self.loop_count}", 5, 220, self.display.GREEN)
+            self.display.text(f"Mem: {gc.mem_free()//1024}KB", 120, 220, self.display.WHITE)
             
         except Exception as e:
-            print(f"Erro no loop principal: {e}")
-            error_count += 1
+            print(f"Display erro: {e}")
             
-            if error_count > 10:
-                print("Muitos erros consecutivos - reiniciando...")
-                play_beep_pattern('erro')
-                time.sleep(3)
-                reset()
-            
-            time.sleep(2)
+    async def run(self):
+        """Loop principal"""
+        print("Iniciando monitoramento...")
+        last_mqtt_attempt = 0
+        
+        while True:
+            try:
+                self.loop_count += 1
+                print(f"\n--- Ciclo {self.loop_count} ---")
+                
+                # Tenta conectar MQTT se necessário
+                if not self.mqtt_client and (time.time() - last_mqtt_attempt) > 30:
+                    self.connect_mqtt()
+                    last_mqtt_attempt = time.time()
+                    
+                # Lê sensores
+                data = self.read_sensors()
+                
+                # Mostra dados no console
+                temp, humidity = data.get('temperature'), data.get('humidity')
+                if temp is not None and humidity is not None:
+                    print(f"DHT11: {temp}°C, {humidity}%")
+                    
+                light = data.get('light_percent')
+                if light is not None:
+                    print(f"Luz: {light}% ({data.get('light_status')})")
+                    
+                # Mostra dados do sensor de chuva
+                if ENABLE_RAIN_SENSOR:
+                    rain_status = data.get('rain_status')
+                    rain_raw = data.get('rain_raw')
+                    if rain_status and rain_status not in ["OFF", "Erro"]:
+                        print(f"Chuva: {rain_status} ({rain_raw})")
+                    
+                # Verifica alertas
+                alerts = self.check_alerts(data)
+                if alerts:
+                    print(f"ALERTAS: {', '.join(alerts)}")
+                else:
+                    print("Sistema OK")
+                    
+                # Processa alertas
+                self.handle_alerts(alerts)
+                
+                # Atualiza display
+                self.update_display(data, alerts)
+                
+                # Publica dados
+                if self.mqtt_client:
+                    try:
+                        if temp is not None:
+                            self.publish_data("temperature", temp)
+                        if humidity is not None:
+                            self.publish_data("humidity", humidity)
+                        if light is not None:
+                            self.publish_data("luminosity", light)
+
+                        # Publica status de luz
+                        light_status = data.get('light_status')
+                        if light_status and light_status not in ["OFF", "Erro"]:
+                            self.publish_data("light_status", light_status)
+                            print(f"✓ Publicado status-luz: {light_status}")
+                        
+                        # Publica dados do sensor de chuva
+                        if ENABLE_RAIN_SENSOR:
+                            rain_status = data.get('rain_status')
+                            if rain_status and rain_status not in ["OFF", "Erro"]:
+                                self.publish_data("climate_status", rain_status)
+                                print(f"✓ Publicado chuva: {rain_status}")
+                                
+                            rain_raw = data.get('rain_raw')
+                            if rain_raw is not None:
+                                self.publish_data("rain", rain_raw)
+                                print(f"✓ Publicado chuva-raw: {rain_raw}")
+                    except:
+                        self.mqtt_client = None
+                        
+                # Limpeza de memória
+                if self.loop_count % 10 == 0:
+                    gc.collect()
+                    
+                await asyncio.sleep(10)
+                
+            except KeyboardInterrupt:
+                print("Sistema interrompido")
+                break
+            except Exception as e:
+                print(f"Erro no loop: {e}")
+                await asyncio.sleep(5)
 
 # ===============================================================
 # FUNÇÃO PRINCIPAL
 # ===============================================================
 
-def main():
-    """Função principal do sistema"""
+async def main():
+    """Função principal"""
     try:
-        print("=== INICIALIZAÇÃO DO SISTEMA ===")
+        print("Inicializando sistema...")
         
-        # Sequência de inicialização
-        startup_sequence()
+        # Cria instância da estação
+        station = WeatherStation()
         
-        # Inicializa componentes
-        display_ok = init_display()
-        sensors_ok = init_sensors()
-        actuators_ok = init_actuators()
+        # Inicializa hardware
+        station.init_hardware()
         
-        # Mostra configuração no console
-        print(f"\n=== CONFIGURAÇÃO ATIVA ===")
-        print(f"Sensores:")
-        print(f"- LDR (Luminosidade): {'ON' if ENABLE_LDR else 'OFF'}")
-        print(f"- DHT11 (Temp/Umidade): {'ON' if ENABLE_DHT11 else 'OFF'}")
-        print(f"- Sensor de Chuva: {'ON' if ENABLE_RAIN_SENSOR else 'OFF'}")
-        print(f"\nLimites de Alerta:")
-        print(f"- Temperatura: <{TEMP_ALERTA_BAIXA}°C ou >{TEMP_ALERTA_ALTA}°C")
-        print(f"- Umidade: <{UMIDADE_ALERTA_BAIXA}% ou >{UMIDADE_ALERTA_ALTA}%")
-        print(f"- Alertas Sonoros: {'ON' if ENABLE_SOUND_ALERTS else 'OFF'}")
+        # Som de inicialização
+        station.beep(1000, 100)
+        time.sleep(0.1)
+        station.beep(1200, 100)
         
-        # Verifica se há sensores funcionando
-        if not sensors_ok:
-            print("⚠️ AVISO: Nenhum sensor funcionando!")
-            if actuators_ok:
-                play_beep_pattern('erro')
+        print("Sistema iniciado com sucesso!")
         
-        # Som de inicialização bem-sucedida
-        if actuators_ok:
-            time.sleep(1)
-            play_beep_pattern('sistema_ok')
-        
-        print("\n=== SISTEMA INICIADO ===")
-        
-        # Inicia monitoramento contínuo
-        main_loop()
+        # Inicia loop principal
+        await station.run()
         
     except Exception as e:
         print(f"ERRO CRÍTICO: {e}")
-        
-        # Alerta de erro crítico
-        if buzzer and ENABLE_SOUND_ALERTS:
-            play_beep_pattern('erro')
-        
-        if led_vermelho:
-            # Pisca LED vermelho para indicar erro crítico
-            for _ in range(10):
-                led_vermelho.on()
-                time.sleep(0.1)
-                led_vermelho.off()
-                time.sleep(0.1)
-        
         time.sleep(5)
         reset()
 
-# ===============================================================
-# PONTO DE ENTRADA
-# ===============================================================
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
