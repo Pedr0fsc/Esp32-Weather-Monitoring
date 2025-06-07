@@ -1,8 +1,0 @@
-{
-  "name": "esp32-project",
-  "version": "1.0.0",
-  "scripts": {
-    "run": "mpremote connect COM9 run display_data.py",
-    "upload": "mpremote connect COM9 fs cp display_data.py :"
-  }
-}

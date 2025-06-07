@@ -1,13 +1,13 @@
 # ESP32-Weather-Monitoring
 
-&emsp;&emsp;The content below contains project documentation translated into English and Portuguese:
+  The content below contains project documentation translated into English and Portuguese:
 
 <details>
 <summary>English</summary>
 
 ## Esp32 Weather Monitoring
 
-&emsp;&emsp;A MicroPython aplication using the famous Esp32 as the microcontroller, the weather station consists into 2 sensors, BMP280 and DHT11, and a IPS 240x240 display. The project has visual display not only with the eletronic components, but also in your phone, with a webserver with auto-refresh for see real-time datas from the sensors.
+  A MicroPython application using the famous ESP32 as the microcontroller. The weather station consists of a DHT11 sensor, an LDR light sensor, a HW-028 rain sensor, and an IPS 240x240 display. The project has a visual display not only with the electronic components, but also on your phone, with a web server with auto-refresh to see real-time data from the sensors.
 
 ### Configuring `package.json`
 
@@ -16,8 +16,8 @@
   "name": "esp32-project",
   "version": "1.0.0",
   "scripts": {
-  "run": "mpremote connect (your COM port) run file_name.py",
-  "upload": "mpremote connect (your COM port) fs cp file_name.py :"
+    "run": "mpremote connect (your COM port) run file_name.py",
+    "upload": "mpremote connect (your COM port) fs cp file_name.py :"
   }
 }
 ```
@@ -51,34 +51,34 @@ mpremote connect (your COM port) fs rm :(file_name.py)
 
 ### Firmware
 
-&emsp;&emsp;To use your ESP32 with micropython you first need to upload the .bin file from firmware paste to your board using esptool.
+  To use your ESP32 with MicroPython you first need to upload the `.bin` file from the firmware folder to your board using esptool.
 
-&emsp;&emsp;First install esptool via terminal using the following command:
+  First, install esptool via terminal using the following command:
 ```bash
 pip install esptool
 ```
 
-&emsp;&emsp;Now you need to erase the flash memory from your ESP32 microcontroller, first you need to put your board on boot mode using the BOOT and EN/RST buttons:
+  Now you need to erase the flash memory from your ESP32 microcontroller. First, put your board in boot mode using the BOOT and EN/RST buttons:
 * Hold the BOOT button.
 * While holding the BOOT button, press and release the EN/RST button.
-* Hold the BOOT for more 1 or 2 seconds and then release.
+* Hold the BOOT for 1 or 2 more seconds and then release.
 
-&emsp;&emsp;Now your board is in boot mode, you erase the flash memory using the command above:
+  Now your board is in boot mode. Erase the flash memory using:
 ```bash
 python -m esptool --port (your COM port) erase_flash
 ```
 
-&emsp;&emsp;When the flash memory got erased, use the following command to upload the micropython firmware from [Micropython Oficial Download Website](https://micropython.org/download/ESP32_GENERIC/) and download the latest version of firmware to your board:
+  When the flash memory is erased, use the following command to upload the MicroPython firmware from the [Micropython Official Download Website](https://micropython.org/download/ESP32_GENERIC/):
 ```bash
-python -m esptool --chip esp32 --port (your COM port) --baud 460800 write_flash -z 0x1000 C:\Users\your_user\the_path_you_download_the_firmware\the_file_name.bin
+python -m esptool --chip esp32 --port (your COM port) --baud 460800 write_flash -z 0x1000 C:\Users\your_user\path_to_firmware\file_name.bin
 ```
 
-&emsp;&emsp;With your micropython firmware installed, it's time to start the project.
-
+  With your MicroPython firmware installed, it's time to start the project.
 
 ### Libraries
 
-&emsp;&emsp;The Libraries folder contains all the libraries used in this project, to use then it's simple, open the folder on your IDE and open the terminal, use the upload command to send the files to your board and then you are ready to run the program code.
+  The Libraries folder contains all the libraries used in this project. To use them, open the folder in your IDE and upload the files to the board using the upload command.
+
 * Upload files to board:  
 ```bash
 mpremote connect (your COM port) cp (library_file_name.py) :
@@ -90,36 +90,40 @@ mpremote connect (your COM port) upload (library_file_name.py) :
 
 ### Components Connection
 
-&emsp;&emsp;The following tables contains all the Pin connections of the eletronic components:
+  The following tables contain all the pin connections of the electronic components:
 
 #### DHT11
 
-Sensor | Board
-:--------- | :------
-`+` | `VCC`
-`OUT` | `D4`
-`-` | `GND`
+| Sensor | Board |
+|--------|-------|
+| `+`    | `VCC` |
+| `OUT`  | `D4`  |
+| `-`    | `GND` |
 
-#### BMP280
+#### LDR
 
-Sensor | Board
-:--------- | :------
-`VCC` | `VCC`
-`GND` | `GND`
-`SCL` | `D22`
-`SDA` | `D21`
+| Sensor | Board |
+|--------|-------|
+|  `Analogic data`      |  `D32`     |
+
+#### HW-028 Rain Sensor
+
+| Sensor | Board |
+|--------|-------|
+|   `Analogic data`     |  `D34`     |
 
 #### DISPLAY IPS 240x240
 
-Sensor | Board
-:--------- | :------
-`GND` | `GND`
-`VCC` | `VCC`
-`SCL` | `D18`
-`SDA` | `D23`
-`RES` | `D4`
-`DC` | `D15`
-`BLK` | `D5`
+| Sensor | Board |
+|--------|-------|
+| `GND`  | `GND` |
+| `VCC`  | `VCC` |
+| `SCL`  | `D18` |
+| `SDA`  | `D23` |
+| `RES`  | `D4`  |
+| `DC`   | `D15` |
+| `BLK`  | `D5`  |
+
 </details>
 
 
@@ -128,7 +132,7 @@ Sensor | Board
 
 ## Esp32 Estação Meteorológica
 
-&emsp;&emsp;Uma aplicação MicroPython usando o famoso ESP32 como microcontrolador, a estação meteorológica consiste em 2 sensores, BMP280 e DHT11, e um display IPS 240x240. O projeto tem exibição visual não só nos componentes eletrônicos, mas também no seu celular, com um servidor web com auto-refresh para ver os dados dos sensores em tempo real.
+  Uma aplicação MicroPython usando o famoso ESP32 como microcontrolador. A estação meteorológica consiste em um sensor DHT11, um sensor de luminosidade LDR, um sensor de chuva HW-028 e um display IPS 240x240. O projeto tem exibição visual não só nos componentes eletrônicos, mas também no seu celular, com um servidor web com auto-refresh para ver os dados dos sensores em tempo real.
 
 ### Configurando o `package.json`
 ```
@@ -136,8 +140,8 @@ Sensor | Board
   "name": "esp32-project",
   "version": "1.0.0",
   "scripts": {
-  "run": "mpremote connect (seu COM) run nome_do_arquivo.py",
-  "upload": "mpremote connect (seu COM) fs cp nome_do_arquivo.py :"
+    "run": "mpremote connect (seu COM) run nome_do_arquivo.py",
+    "upload": "mpremote connect (seu COM) fs cp nome_do_arquivo.py :"
   }
 }
 ```
@@ -171,33 +175,33 @@ mpremote connect (seu COM) fs rm :(nome_do_arquivo.py)
 
 ### Firmware
 
-&emsp;&emsp;Para usar seu ESP32 com MicroPython você precisa primeiro enviar o arquivo `.bin` do firmware para a placa usando o esptool.
+  Para usar seu ESP32 com MicroPython, você precisa primeiro enviar o arquivo `.bin` do firmware para a placa usando o esptool.
 
-&emsp;&emsp;Primeiro instale o esptool no terminal com o comando:  
+  Primeiro instale o esptool com o comando:  
 ```bash
 pip install esptool
 ```
 
-&emsp;&emsp;Agora é necessário apagar a memória flash do ESP32. Para isso, coloque a placa em modo boot usando os botões BOOT e EN/RST:  
+  Agora é necessário apagar a memória flash do ESP32. Coloque a placa em modo boot usando os botões BOOT e EN/RST:  
 * Segure o botão BOOT.  
 * Enquanto segura o BOOT, pressione e solte o EN/RST.  
 * Segure o BOOT por mais 1 ou 2 segundos e depois solte.
 
-&emsp;&emsp;Com a placa em modo boot, apague a memória flash com:  
+  Com a placa em modo boot, apague a memória flash:  
 ```bash
 python -m esptool --port (seu COM) erase_flash
 ```
 
-&emsp;&emsp;Depois que a memória foi apagada, envie o firmware MicroPython baixado no site oficial [Micropython Oficial Download Website](https://micropython.org/download/ESP32_GENERIC/):  
+  Depois que a memória for apagada, envie o firmware MicroPython baixado no site oficial [Micropython Oficial Download Website](https://micropython.org/download/ESP32_GENERIC/):  
 ```bash
 python -m esptool --chip esp32 --port (seu COM) --baud 460800 write_flash -z 0x1000 C:\Users\seu_usuario\caminho_do_firmware\nome_do_arquivo.bin
 ```
 
-&emsp;&emsp;Com o firmware MicroPython instalado, você pode começar o projeto.
+  Com o firmware MicroPython instalado, você pode começar o projeto.
 
 ### Bibliotecas
 
-&emsp;&emsp;A pasta Libraries contém todas as bibliotecas usadas neste projeto. Para usar, abra a pasta na sua IDE e no terminal envie os arquivos para a placa com o comando upload. Depois, é só rodar o código.
+  A pasta Libraries contém todas as bibliotecas usadas neste projeto. Para usá-las, abra a pasta na sua IDE e envie os arquivos para a placa com o comando upload.
 
 * Enviar arquivos para a placa:  
 ```bash
@@ -210,37 +214,40 @@ mpremote connect (seu COM) upload (nome_da_biblioteca.py) :
 
 ### Conexão dos componentes
 
-&emsp;&emsp;As tabelas abaixo mostram todas as conexões dos pinos dos componentes eletrônicos:
+  As tabelas abaixo mostram todas as conexões dos pinos dos componentes eletrônicos:
 
 #### DHT11
 
-| Sensor | Placa  |
-|--------|--------|
-| `+`    | `VCC`  |
-| `OUT`  | `D4`   |
-| `-`    | `GND`  |
+| Sensor | Placa |
+|--------|-------|
+| `+`    | `VCC` |
+| `OUT`  | `D4`  |
+| `-`    | `GND` |
 
-#### BMP280
+#### LDR
 
-| Sensor | Placa  |
-|--------|--------|
-| `VCC`  | `VCC`  |
-| `GND`  | `GND`  |
-| `SCL`  | `D22`  |
-| `SDA`  | `D21`  |
+| Sensor | Placa |
+|--------|-------|
+|  `Dados analógicos`      |  `D32`     |
+
+#### Sensor de Chuva HW-028
+
+| Sensor | Placa |
+|--------|-------|
+|  `Dados analógicos`      |  `D34`     |
 
 #### DISPLAY IPS 240x240
 
-| Sensor | Placa  |
-|--------|--------|
-| `GND`  | `GND`  |
-| `VCC`  | `VCC`  |
-| `SCL`  | `D18`  |
-| `SDA`  | `D23`  |
-| `RES`  | `D4`   |
-| `DC`   | `D15`  |
-| `BLK`  | `D5`   |
+| Sensor | Placa |
+|--------|-------|
+| `GND`  | `GND` |
+| `VCC`  | `VCC` |
+| `SCL`  | `D18` |
+| `SDA`  | `D23` |
+| `RES`  | `D4`  |
+| `DC`   | `D15` |
+| `BLK`  | `D5`  |
 
 </details>
 
-    Thanks for reading! 😁
+Thanks for reading! 😁
