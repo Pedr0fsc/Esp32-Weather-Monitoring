@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import time # Vai ser responsável por importar um módulo de tempo
 from machine import Pin, reset, freq, ADC, PWM # Importa classes e funções específicas da biblioteca machine para controle de hardware
 import st7789_simplified # Importa biblioteca simplificada para controle do display ST7789 
@@ -10,42 +9,22 @@ from umqtt.simple import MQTTClient # Importa cliente MQTT simples para comunica
 
 # Imprime mensagem de inicialização do sistema
 print("=== ESP32 WEATHER STATION ===") # Print para demonstrar que o sistema está sendo iniciado
-=======
-
-import time # Vai ser responsável por importar um módulo de tempo
-from machine import Pin, reset, freq, ADC, PWM # Importa classes e funções específicas da biblioteca machine para controle de hardware
-import st7789_simplified # Importa biblioteca simplificada para controle do display ST7789 
-import dht # Importa biblioteca para sensores DHT (temperatura e umidade)
-import gc # Coletor de lixo, usado para evitar muitos dados desnecessários para não sobrecarregar o sistema
-import network # Importa biblioteca para conectividade WiFi
-import uasyncio as asyncio # Importa biblioteca para programação assíncrona
-from umqtt.simple import MQTTClient # Importa cliente MQTT simples para comunicação com serviços cloud
-
-# Imprime mensagem de inicialização do sistema
-print("=== ESP32 WEATHER STATION ===") # Print para desmontrar que o sistema está sendo iniciado
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
 
 # ===============================================================
 # CONFIGURAÇÕES
 # ===============================================================
+
 # Sensores
 ENABLE_LDR = True # Inicializa o sensor LDR (Sensor de luminosidade, se está claro ou escuro)
 ENABLE_DHT11 = True # Inicializa o sensor DHT11(Sensor de temperatura e umidade)
 ENABLE_RAIN_SENSOR = True # Inicializa o sensor de Chuva
-<<<<<<< HEAD
+
 WIFI_SSID = "" # Define o nome da rede WiFi (SSID) - deixado em branco para ser preenchido
 WIFI_PASSWORD = "" # Define a senha do WIFI
 ADAFRUIT_AIO_USERNAME = "" # Usuário do ADAFRUIT
 ADAFRUIT_AIO_KEY = "" # Define a chave de acesso do adafruit
 MQTT_SERVER = "io.adafruit.com" # Link para inicializar o servidor adafruit
 
-=======
-WIFI_SSID = "" # Define o nome da rede WiFi (SSID) - deixado em branco para ser preenchido
-WIFI_PASSWORD = "" # Define a senha do WIFI
-ADAFRUIT_AIO_USERNAME = "" # Usuário do ADAFRUIT
-ADAFRUIT_AIO_KEY = "" # Define a chave de acesso do adatruit
-MQTT_SERVER = "io.adafruit.com" # Link para inicializar o servidor adafruit
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
 # Pinos
 # Define o pino GPIO 4 para o sensor DHT11
 DHT11_PIN = 4 
@@ -53,16 +32,10 @@ DHT11_PIN = 4
 LDR_PIN = 32
 # Define o pino GPIO 34 para o sensor de chuva (analógico)
 RAIN_SENSOR_PIN = 34
-<<<<<<< HEAD
-=======
-# Define o pino GPIO 2 para o LED de status
-LED_PIN = 2
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
 # Define o pino GPIO 14 para o buzzer
 BUZZER_PIN = 14
 # Define os pinos para comunicação SPI com o display: SCK, MOSI, RST, DC, BLK
 SPI_SCK, SPI_MOSI, RST, DC, BLK = 18, 23, 19, 15, 5
-<<<<<<< HEAD
 
 # Pinos dos LEDs
 LED_VERDE_PIN = 27         # LED Verde - Sistema OK
@@ -82,14 +55,6 @@ LDR_THRESHOLD_BRIGHT = 2500  # Acima = dia ensolarado
 RAIN_THRESHOLD_DRY = 3000    # Acima = seco
 RAIN_THRESHOLD_WET = 1500    # Abaixo = chuva forte
 
-=======
-# Define temperatura alta (35°C) e baixa (5°C) para alertas
-TEMP_HIGH, TEMP_LOW = 35, 5
-# Define umidade alta (85%) e baixa (20%) para alertas
-HUMIDITY_HIGH, HUMIDITY_LOW = 85, 20
-# Define valores de luminosidade para escuro (500) e claro (2500)
-LDR_DARK, LDR_BRIGHT = 500, 2500
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
 # ===============================================================
 # CLASSES E VARIÁVEIS GLOBAIS
 # ===============================================================
@@ -105,15 +70,12 @@ class WeatherStation:
         self.ldr_sensor = None
         # Inicializa a variável do sensor de chuva como None
         self.rain_sensor = None
-<<<<<<< HEAD
+
         # Inicializa as variáveis dos LEDs como None
         self.led_verde = None
         self.led_vermelho = None
         self.led_amarelo = None
-=======
-        # Inicializa a variável do LED como None
-        self.led = None
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
         # Inicializa a variável do buzzer como None
         self.buzzer = None
         # Inicializa a variável do cliente MQTT como None
@@ -144,7 +106,6 @@ class WeatherStation:
             
             # Exibe texto "INICIALIZANDO..." na posição (10, 120) com cor branca
             self.display.text("INICIALIZANDO...", 10, 120, self.display.WHITE)
-<<<<<<< HEAD
             
             # Imprime confirmação de sucesso na inicialização do display
             print("Display OK")
@@ -188,32 +149,7 @@ class WeatherStation:
         except Exception as leds_nao_ligados:
             # Imprime erro na inicialização dos LEDs
             print(f"LEDs erro: {leds_nao_ligados}")
-=======
-            
-            # Imprime confirmação de sucesso na inicialização do display
-            print("✓ Display OK")
-        # Captura qualquer exceção durante inicialização do display
-        except Exception as display_nao_iniciado:
-            # Imprime erro na inicialização do display
-            print(f"✗ Display erro: {display_nao_iniciado}")
-            
-        # LED de status
-        # Tenta inicializar o LED de status
-        try:
-            # Configura o pino do LED como saída
-            self.led = Pin(LED_PIN, Pin.OUT)
-            
-            # Liga o LED inicialmente
-            self.led.on()
-            
-            # Imprime confirmação de sucesso na inicialização do LED
-            print("✓ LED OK")
-        # Captura qualquer exceção durante inicialização do LED
-        except Exception as led_nao_ligado:
-            # Imprime erro na inicialização do LED
-            print(f"✗ LED erro: {led_nao_ligado}")
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
-            
+
         # Buzzer
         # Tenta inicializar o buzzer
         try:
@@ -227,19 +163,12 @@ class WeatherStation:
             self.beep(1000, 100)  # Teste
             
             # Imprime confirmação de sucesso na inicialização do buzzer
-<<<<<<< HEAD
+
             print("Buzzer OK")
         # Captura qualquer exceção durante inicialização do buzzer
         except Exception as sem_som:
             # Imprime erro na inicialização do buzzer
             print(f"Buzzer erro: {sem_som}")
-=======
-            print("✓ Buzzer OK")
-        # Captura qualquer exceção durante inicialização do buzzer
-        except Exception as sem_som:
-            # Imprime erro na inicialização do buzzer
-            print(f"✗ Buzzer erro: {sem_som}")
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
             
         # Sensores
         # Verifica se o sensor DHT11 está habilitado
@@ -248,7 +177,6 @@ class WeatherStation:
             try:
                 # Cria instância do sensor DHT11 no pino definido
                 self.dht_sensor = dht.DHT11(Pin(DHT11_PIN))
-<<<<<<< HEAD
                 
                 # Imprime confirmação de sucesso na inicialização do DHT11
                 print("DHT11 OK")
@@ -256,17 +184,7 @@ class WeatherStation:
             except Exception as dht_nao_iniciado:
                 # Imprime erro na inicialização do DHT11
                 print(f"DHT11 erro: {dht_nao_iniciado}")
-                
-=======
-                
-                # Imprime confirmação de sucesso na inicialização do DHT11
-                print("✓ DHT11 OK")
-            # Captura qualquer exceção durante inicialização do DHT11
-            except Exception as dht_nao_iniciado:
-                # Imprime erro na inicialização do DHT11
-                print(f"✗ DHT11 erro: {dht_nao_iniciado}")
-                
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
         # Verifica se o sensor LDR está habilitado
         if ENABLE_LDR:
             # Tenta inicializar o sensor LDR
@@ -276,25 +194,14 @@ class WeatherStation:
                 
                 # Define atenuação para 11dB (permite leitura de 0V a 3.3V)
                 self.ldr_sensor.atten(ADC.ATTN_11DB)
-<<<<<<< HEAD
-                
+
                 # Imprime confirmação de sucesso na inicialização do LDR
                 print("LDR OK")
             # Captura qualquer exceção durante inicialização do LDR
             except Exception as ldr_nao_iniciado:
                 # Imprime erro na inicialização do LDR
                 print(f"LDR erro: {ldr_nao_iniciado}")
-                
-=======
-                
-                # Imprime confirmação de sucesso na inicialização do LDR
-                print("✓ LDR OK")
-            # Captura qualquer exceção durante inicialização do LDR
-            except Exception as ldr_nao_iniciado:
-                # Imprime erro na inicialização do LDR
-                print(f"✗ LDR erro: {ldr_nao_iniciado}")
-                
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
         # Verifica se o sensor de chuva está habilitado
         if ENABLE_RAIN_SENSOR:
             # Tenta inicializar o sensor de chuva
@@ -304,7 +211,6 @@ class WeatherStation:
                 
                 # Define atenuação para 11dB (permite leitura de 0V a 3.3V)
                 self.rain_sensor.atten(ADC.ATTN_11DB)
-<<<<<<< HEAD
                 
                 # Imprime confirmação de sucesso na inicialização do sensor de chuva
                 print("Rain sensor OK")
@@ -312,17 +218,7 @@ class WeatherStation:
             except Exception as sensor_nao_iniciado:
                 # Imprime erro na inicialização do sensor de chuva
                 print(f"Rain sensor erro: {sensor_nao_iniciado}")
-                
-=======
-                
-                # Imprime confirmação de sucesso na inicialização do sensor de chuva
-                print("✓ Rain sensor OK")
-            # Captura qualquer exceção durante inicialização do sensor de chuva
-            except Exception as sensor_nao_iniciado:
-                # Imprime erro na inicialização do sensor de chuva
-                print(f"✗ Rain sensor erro: {sensor_nao_iniciado}")
-                
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
     # Método para emitir um beep com frequência e duração específicas
     def beep(self, freq_hz, duration_ms):
         """Emite um beep simples"""
@@ -341,7 +237,6 @@ class WeatherStation:
             self.buzzer.duty(0)
         # Ignora qualquer erro durante emissão do beep
         except:
-<<<<<<< HEAD
             pass
 
     # Método para emitir sequência de beeps para alertas específicos
@@ -418,9 +313,6 @@ class WeatherStation:
         else:
             self.led_verde.on()
             
-=======
-            pass        
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
     # Método para conectar à rede WiFi
     def connect_wifi(self):
         """Conecta ao WiFi"""
@@ -446,30 +338,23 @@ class WeatherStation:
         # Verifica se conseguiu conectar
         if sta_if.isconnected():
             # Imprime confirmação com endereço IP
-<<<<<<< HEAD
+
             print(f"WiFi: {sta_if.ifconfig()[0]}")
-=======
-            print(f"✓ WiFi: {sta_if.ifconfig()[0]}")
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
             # Atualiza flag de conexão WiFi
             self.wifi_connected = True
             # Retorna sucesso
             return True
         else:
             # Imprime falha na conexão
-<<<<<<< HEAD
+
             print("WiFi falhou")
-=======
-            print("✗ WiFi falhou")
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
             # Atualiza flag de conexão WiFi
             self.wifi_connected = False
             # Retorna falha
             return False
-<<<<<<< HEAD
-        
-=======
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
     # Método para conectar ao servidor MQTT
     def connect_mqtt(self):
         """Conecta ao MQTT"""
@@ -493,23 +378,20 @@ class WeatherStation:
             # Conecta ao servidor MQTT
             self.mqtt_client.connect()
             # Imprime confirmação de sucesso
-<<<<<<< HEAD
+
             print("MQTT conectado")
-=======
-            print("✓ MQTT conectado")
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
             # Retorna sucesso
             return True
         # Captura qualquer exceção durante conexão MQTT
         except Exception as erro_de_conexao_mqtt:
             # Imprime erro na conexão MQTT
-<<<<<<< HEAD
+
             print(f"MQTT erro: {erro_de_conexao_mqtt}")
-=======
-            print(f"✗ MQTT erro: {erro_de_conexao_mqtt}")
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
             # Retorna falha
             return False
+
     # Método para publicar dados no Adafruit IO
     def publish_data(self, feed, value):
         """Publica dados para Adafruit IO"""
@@ -530,6 +412,7 @@ class WeatherStation:
             print(f"Erro publicando {feed}: {erro_de_publicacao}")
             # Retorna falha
             return False
+
     # Método para ler todos os sensores e retornar os dados
     def read_sensors(self):
         """Lê todos os sensores e retorna dados"""
@@ -572,11 +455,9 @@ class WeatherStation:
                 # Converte para porcentagem (0-100%) limitando a 100
                 data['light_percent'] = min(100, int((ldr_raw / 4095) * 100))
                 # Determina status baseado nos limites definidos
-<<<<<<< HEAD
+
                 if ldr_raw < LDR_THRESHOLD_DARK:
-=======
-                if ldr_raw < LDR_DARK:
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
                     data['light_status'] = "Noite"
                 elif ldr_raw > LDR_THRESHOLD_BRIGHT:
                     data['light_status'] = "Ensolarado"
@@ -607,8 +488,7 @@ class WeatherStation:
                 
                 # Armazena valor bruto
                 data['rain_raw'] = rain_raw
-                
-<<<<<<< HEAD
+
                 # Determina status baseado nos valores definidos
                 if rain_raw > RAIN_THRESHOLD_DRY:
                     data['rain_status'] = "Seco"
@@ -616,11 +496,7 @@ class WeatherStation:
                     data['rain_status'] = "Chuva"
                 else:
                     data['rain_status'] = "Úmido"
-=======
-                # Determina status baseado nos valores lidos
-                # Valor alto = seco, valor baixo = úmido/chuva
-                data['rain_status'] = "Seco" if rain_raw > 3000 else "Úmido" if rain_raw > 1500 else "Chuva"
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
             # Captura qualquer exceção durante leitura do sensor de chuva
             except Exception as e:
                 # Imprime erro na leitura do sensor de chuva
@@ -651,33 +527,23 @@ class WeatherStation:
         # Verifica alertas de temperatura
         if temp is not None:
             # Temperatura muito alta
-<<<<<<< HEAD
+
             if temp >= TEMP_ALERTA_ALTA:
                 alerts.append("TEMP_ALTA")
             # Temperatura muito baixa
             elif temp <= TEMP_ALERTA_BAIXA:
-=======
-            if temp >= TEMP_HIGH:
-                alerts.append("TEMP_ALTA")
-            # Temperatura muito baixa
-            elif temp <= TEMP_LOW:
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
                 alerts.append("TEMP_BAIXA")
                 
         # Verifica alertas de umidade
         if humidity is not None:
             # Umidade muito alta
-<<<<<<< HEAD
+
             if humidity >= UMIDADE_ALERTA_ALTA:
                 alerts.append("UMID_ALTA")
             # Umidade muito baixa
             elif humidity <= UMIDADE_ALERTA_BAIXA:
-=======
-            if humidity >= HUMIDITY_HIGH:
-                alerts.append("UMID_ALTA")
-            # Umidade muito baixa
-            elif humidity <= HUMIDITY_LOW:
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
                 alerts.append("UMID_BAIXA")
                 
         # Verifica alerta de chuva
@@ -687,7 +553,6 @@ class WeatherStation:
         # Retorna lista de alertas
         return alerts
         
-<<<<<<< HEAD
     # Método para processar alertas com LEDs e som
     def handle_alerts(self, alerts, data):
         """Processa alertas - LEDs e som"""
@@ -718,36 +583,7 @@ class WeatherStation:
             elif alert == "UMID_BAIXA":
                 self.beep_sequence("UMIDADE_BAIXA")
                 break
-=======
-    # Método para processar alertas com LED e som
-    def handle_alerts(self, alerts):
-        """Processa alertas - LED e som"""
-        # Se não há alertas
-        if not alerts:
-            # Liga LED indicando sistema OK
-            if self.led:
-                self.led.on()  # LED ligado = sistema OK
-            return
-            
-        # Se há alertas, desliga LED (indicando problema)
-        if self.led:
-            self.led.off()
-            
-        # Emite sons diferentes para cada tipo de alerta
-        if "TEMP_ALTA" in alerts:
-            # Som agudo para temperatura alta
-            self.beep(800, 200)
-        elif "TEMP_BAIXA" in alerts:
-            # Som grave para temperatura baixa
-            self.beep(400, 300)
-        elif "CHUVA" in alerts:
-            # Som médio para chuva
-            self.beep(600, 150)
-        elif any("UMID" in alert for alert in alerts):
-            # Som rápido para problemas de umidade
-            self.beep(500, 100)
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
-            
+
     # Método para atualizar informações no display
     def update_display(self, data, alerts):
         """Atualiza display com informações"""
@@ -792,22 +628,18 @@ class WeatherStation:
             # Exibe temperatura se disponível
             if temp is not None:
                 # Cor vermelha se temperatura fora dos limites, branca se normal
-<<<<<<< HEAD
+
                 color = self.display.RED if temp >= TEMP_ALERTA_ALTA or temp <= TEMP_ALERTA_BAIXA else self.display.WHITE
-=======
-                color = self.display.RED if temp >= TEMP_HIGH or temp <= TEMP_LOW else self.display.WHITE
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
                 self.display.text(f"Temp: {temp}C", 5, y, color)
                 y += 15
                 
             # Exibe umidade se disponível
             if humidity is not None:
                 # Cor amarela se umidade fora dos limites, branca se normal
-<<<<<<< HEAD
+
                 color = self.display.YELLOW if humidity >= UMIDADE_ALERTA_ALTA or humidity <= UMIDADE_ALERTA_BAIXA else self.display.WHITE
-=======
-                color = self.display.YELLOW if humidity >= HUMIDITY_HIGH or humidity <= HUMIDITY_LOW else self.display.WHITE
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
                 self.display.text(f"Umid: {humidity}%", 5, y, color)
                 y += 15
                 
@@ -917,12 +749,9 @@ class WeatherStation:
                     print("Sistema OK")
                     
                 # Processa alertas (LED e som)
-<<<<<<< HEAD
+
                 self.handle_alerts(alerts, data)
-=======
-                self.handle_alerts(alerts)
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
-                
+
                 # Atualiza informações no display
                 self.update_display(data, alerts)
                 
@@ -957,11 +786,9 @@ class WeatherStation:
                             rain_raw = data.get('rain_raw')
                             if rain_raw is not None:
                                 self.publish_data("rain", rain_raw)
-<<<<<<< HEAD
+
                                 print(f"Publicado chuva-raw: {rain_raw}")
-=======
-                                print(f"✓ Publicado chuva-raw: {rain_raw}")
->>>>>>> 285c4da536864a3ae455a05f95d9c51fcf4eccb5
+
                     # Se houver erro na publicação, desconecta MQTT
                     except:
                         self.mqtt_client = None  
