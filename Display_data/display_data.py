@@ -464,9 +464,9 @@ class WeatherStation:
                 else:
                     data['light_status'] = "Nublado"
             # Captura qualquer exceção durante leitura do LDR
-            except Exception as e:
+            except Exception as erro_de_leitura_LDR:
                 # Imprime erro na leitura do LDR
-                print(f"LDR erro: {e}")
+                print(f"LDR erro: {erro_de_leitura_LDR}")
                 
                 # Define valores como None em caso de erro
                 data['light_raw'] = None
@@ -498,9 +498,9 @@ class WeatherStation:
                     data['rain_status'] = "Úmido"
 
             # Captura qualquer exceção durante leitura do sensor de chuva
-            except Exception as e:
+            except Exception as erro_de_leitura_rain:
                 # Imprime erro na leitura do sensor de chuva
-                print(f"Rain sensor erro: {e}")
+                print(f"Rain sensor erro: {erro_de_leitura_rain}")
                 
                 # Define valores como None em caso de erro
                 data['rain_raw'] = None
@@ -691,9 +691,9 @@ class WeatherStation:
             self.display.text(f"Mem: {gc.mem_free()//1024}KB", 120, 220, self.display.WHITE)
             
         # Captura qualquer exceção durante atualização do display
-        except Exception as e:
+        except Exception as erro_atualizacao_display:
             # Imprime erro na atualização do display
-            print(f"Display erro: {e}")
+            print(f"Display erro: {erro_atualizacao_display}")
             
     # Método assíncrono para o loop principal do sistema
     async def run(self):
@@ -809,9 +809,9 @@ class WeatherStation:
                 break
                 
             # Captura qualquer outro erro no loop
-            except Exception as e:
+            except Exception as erro_loop:
                 # Imprime erro encontrado
-                print(f"Erro no loop: {e}")
+                print(f"Erro no loop: {erro_loop}")
                 
                 # Aguarda 5 segundos antes de tentar novamente
                 await asyncio.sleep(5)
@@ -851,9 +851,9 @@ async def main():
         await station.run()
         
     # Captura qualquer erro crítico durante inicialização
-    except Exception as e:
+    except Exception as erro_critico_inicializacao:
         # Imprime mensagem de erro crítico
-        print(f"ERRO CRÍTICO: {e}")
+        print(f"ERRO CRÍTICO: {erro_critico_inicializacao}")
         
         # Aguarda 5 segundos antes de reiniciar
         time.sleep(5)
